@@ -1,8 +1,10 @@
+streamlit
 numpy
 pandas
 librosa
-scikit-learn
-sounddevice
 matplotlib
+scikit-learn
 joblib
-streamlit
+sounddevice      # still useful for local dev, but not used on cloud
+streamlit-webrtc
+av
