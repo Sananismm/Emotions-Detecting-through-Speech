@@ -26,10 +26,7 @@ st.set_page_config(page_title="Speech Emotion Detection", layout="wide")
 
 st.title("🎭 Emotion Detection from Speech")
 st.write("MFCC-based DSP features + SVM trained on RAVDESS.")
-if model_choice == "CNN (Mel-Spectrogram)":
-    st.success("🧠 Active Model: CNN (Mel-Spectrogram)")
-else:
-    st.info("📐 Active Model: SVM (MFCC Features)")
+
 
 
 # ------------------ SIDEBAR CONTROLS ------------------
@@ -39,6 +36,10 @@ model_choice = st.sidebar.radio(
     "Choose model:",
     ("SVM (MFCC)", "CNN (Mel-Spectrogram)")
 )
+if model_choice == "CNN (Mel-Spectrogram)":
+    st.success("🧠 Active Model: CNN (Mel-Spectrogram)")
+else:
+    st.info("📐 Active Model: SVM (MFCC Features)")
 
 
 # Debug info in sidebar so we know paths are OK
