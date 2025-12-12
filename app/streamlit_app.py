@@ -7,7 +7,15 @@ import librosa
 import librosa.display
 import matplotlib.pyplot as plt
 import joblib
-import sounddevice as sd   # <-- NEW
+
+try:
+    import sounddevice as sd
+    HAS_SOUNDDEVICE = True
+except Exception:
+    HAS_SOUNDDEVICE = False
+
+
+import tensorflow as tf
 
 # ------------------ CONFIG ------------------
 SR = 16000
@@ -18,6 +26,20 @@ st.set_page_config(page_title="Speech Emotion Detection", layout="wide")
 
 st.title("🎭 Emotion Detection from Speech")
 st.write("MFCC-based DSP features + SVM trained on RAVDESS.")
+if model_choice == "CNN (Mel-Spectrogram)":
+    st.success("🧠 Active Model: CNN (Mel-Spectrogram)")
+else:
+    st.info("📐 Active Model: SVM (MFCC Features)")
+
+
+# ------------------ SIDEBAR CONTROLS ------------------
+
+st.sidebar.header("Model Selection")
+model_choice = st.sidebar.radio(
+    "Choose model:",
+    ("SVM (MFCC)", "CNN (Mel-Spectrogram)")
+)
+
 
 # Debug info in sidebar so we know paths are OK
 st.sidebar.header("Debug info")
@@ -55,6 +77,15 @@ except Exception as e:
     st.stop()   # stop here so user sees the error
 
 
+@st.cache_resource
+def load_cnn_model():
+    cnn_model = tf.keras.models.load_model("models/cnn_emotion_model_83.h5")
+    cnn_label_encoder = joblib.load("models/cnn_label_encoder.pkl")
+    return cnn_model, cnn_label_encoder
+
+cnn_model, cnn_label_encoder = load_cnn_model()
+
+
 # ------------------ DSP FEATURES ------------------
 
 def extract_features(y, sr=SR, n_mfcc=N_MFCC):
@@ -89,6 +120,58 @@ def predict_emotion_from_signal(signal, sr=SR):
     proba = svm_clf.predict_proba(feats_scaled)[0]
     return label, proba, y_proc
 
+def audio_to_melspec_for_cnn(y, sr=16000,
+                             n_mels=128, n_fft=1024,
+                             hop_length=256, max_frames=128):
+    """
+    Convert raw audio array into normalized Mel-spectrogram
+    shaped for CNN inference.
+    """
+    # Trim + normalize
+    y, _ = librosa.effects.trim(y, top_db=25)
+    y = librosa.util.normalize(y)
+
+    # Mel-spectrogram
+    mel = librosa.feature.melspectrogram(
+        y=y,
+        sr=sr,
+        n_fft=n_fft,
+        hop_length=hop_length,
+        n_mels=n_mels,
+        power=2.0
+    )
+
+    mel_db = librosa.power_to_db(mel, ref=np.max)
+
+    # Fix time dimension
+    n_frames = mel_db.shape[1]
+
+    if n_frames < max_frames:
+        pad_width = max_frames - n_frames
+        mel_db = np.pad(
+            mel_db,
+            ((0, 0), (0, pad_width)),
+            mode="constant",
+            constant_values=mel_db.min()
+        )
+    else:
+        start = (n_frames - max_frames) // 2
+        mel_db = mel_db[:, start:start + max_frames]
+
+    # Normalize to [0, 1]
+    mel_db = (mel_db - mel_db.min()) / (mel_db.max() - mel_db.min() + 1e-8)
+
+    # CNN expects (1, H, W, 1)
+    mel_db = mel_db[np.newaxis, ..., np.newaxis]
+
+    return mel_db
+
+def predict_emotion_cnn(y):
+    mel_input = audio_to_melspec_for_cnn(y)
+    probs = cnn_model.predict(mel_input)[0]
+    idx = np.argmax(probs)
+    emotion = cnn_label_encoder.inverse_transform([idx])[0]
+    return emotion, probs
 
 # ------------------ PLOTTING HELPERS ------------------
 
@@ -110,6 +193,21 @@ def plot_spectrogram(y, sr=SR, title="Spectrogram"):
     ax.set_title(title)
     fig.colorbar(img, ax=ax, format="%+2.0f dB")
     st.pyplot(fig)
+
+def plot_mel_spectrogram(y, sr=SR):
+    mel = librosa.feature.melspectrogram(
+        y=y, sr=sr, n_fft=1024, hop_length=256, n_mels=128
+    )
+    mel_db = librosa.power_to_db(mel, ref=np.max)
+
+    fig, ax = plt.subplots(figsize=(8, 3))
+    img = librosa.display.specshow(
+        mel_db, sr=sr, hop_length=256, x_axis="time", y_axis="mel", ax=ax
+    )
+    ax.set_title("Mel-Spectrogram (CNN Input)")
+    fig.colorbar(img, ax=ax, format="%+2.0f dB")
+    st.pyplot(fig)
+
 
 
 def plot_probabilities(proba, classes, predicted_label):
@@ -137,10 +235,19 @@ def record_audio(duration_sec=5, sr=SR):
 
 # ------------------ MAIN UI: MODE SELECTOR ------------------
 
-mode = st.sidebar.radio(
-    "Input mode:",
-    ("📁 Upload WAV File", "🎙️ Record from Microphone")
-)
+if HAS_SOUNDDEVICE:
+    mode = st.sidebar.selectbox(
+        "Select Mode",
+        ("📁 Upload WAV File", "🎙️ Record Live Audio")
+    )
+else:
+    mode = "Upload WAV File"
+    st.sidebar.warning(
+        "sounddevice module not available. "
+        "Live recording disabled."
+    )
+
+
 
 duration = st.sidebar.slider("Recording duration (seconds)", 2, 8, 5)
 
@@ -160,7 +267,13 @@ if mode == "📁 Upload WAV File":
             # Load audio at SR=16000
             y_file, _ = librosa.load(tmp_path, sr=SR, mono=True)
 
-            label, proba, y_proc = predict_emotion_from_signal(y_file, sr=SR)
+            if model_choice == "SVM (MFCC)":
+                label, proba, y_proc = predict_emotion_from_signal(y_file, sr=SR)
+                classes = svm_clf.classes_
+            else:  # CNN
+                label, proba = predict_emotion_cnn(y_file)
+                y_proc = preprocess_array(y_file, sr=SR)
+                classes = cnn_label_encoder.classes_
 
             st.markdown(f"## Predicted Emotion: **{label}**")
 
@@ -169,10 +282,13 @@ if mode == "📁 Upload WAV File":
                 st.caption("Processed waveform")
                 plot_waveform(y_proc, sr=SR, title="Processed Waveform")
             with col2:
-                st.caption("Spectrogram")
-                plot_spectrogram(y_proc, sr=SR, title="Magnitude Spectrogram")
+                if model_choice == "CNN (Mel-Spectrogram)":
+                    st.caption("Mel-Spectrogram (CNN Input)")
+                    plot_mel_spectrogram(y_proc, sr=SR)
+                else:
+                    st.caption("Spectrogram")
+                    plot_spectrogram(y_proc, sr=SR, title="Magnitude Spectrogram")
 
-            classes = svm_clf.classes_
             plot_probabilities(proba, classes, label)
 
         except Exception as e:
@@ -187,7 +303,13 @@ else:
         try:
             y_live = record_audio(duration_sec=duration, sr=SR)
 
-            label, proba, y_proc = predict_emotion_from_signal(y_live, sr=SR)
+            if model_choice == "SVM (MFCC)":
+                label, proba, y_proc = predict_emotion_from_signal(y_live, sr=SR)
+                classes = svm_clf.classes_
+            else:  # CNN
+                label, proba = predict_emotion_cnn(y_live)
+                y_proc = preprocess_array(y_live, sr=SR)
+                classes = cnn_label_encoder.classes_
 
             st.markdown(f"## Predicted Emotion: **{label}**")
 
@@ -199,9 +321,12 @@ else:
                 st.caption("Spectrogram")
                 plot_spectrogram(y_proc, sr=SR, title="Live Magnitude Spectrogram")
 
-            classes = svm_clf.classes_
             plot_probabilities(proba, classes, label)
 
         except Exception as e:
             st.error("Error during recording or prediction.")
             st.exception(e)
+
+
+
+# streamlit run app/streamlit_app.py
