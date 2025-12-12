@@ -1,117 +1,231 @@
-# 🎤 Emotion Detection Through Speech
+🎭 Speech Emotion Recognition System
 
-A machine learning project that classifies human emotions using **speech audio signals**, combining feature extraction, signal processing, and deep learning.
+Signals & Systems Project | Real-Time Emotion Detection from Speech
 
----
+📌 Overview
 
-## 🚀 Overview
+This project implements a Speech Emotion Recognition (SER) system that classifies human emotions from spoken audio signals.
+It combines classical signal processing techniques with machine learning and deep learning, and is deployed as an interactive Streamlit web application.
 
-This project aims to automatically detect emotions from raw audio recordings using MFCC-based feature extraction and ML models. It is designed for:
+The system supports:
 
-* ML beginners exploring audio classification
-* Researchers working with speech datasets (e.g., RAVDESS)
-* Developers implementing emotion-aware applications
+📁 Emotion detection from uploaded WAV files
 
-**Current Status:** Feature extraction, preprocessing pipeline, and initial model training completed.
+🎙️ Real-time emotion detection from live microphone input (local execution)
 
----
+🔀 Model switching between:
 
-## 🧠 Features
+SVM with MFCC-based DSP features
 
-* MFCC-based audio feature extraction
-* Automated preprocessing pipeline
-* Emotion classification from speech
-* Support for datasets like **RAVDESS**
-* Modular `utils/` code design
-* Jupyter Notebook for experiments and visualizations
+CNN with Mel-Spectrogram inputs
 
----
+The project uses the RAVDESS (Ryerson Audio-Visual Database of Emotional Speech and Song) dataset for training and evaluation.
 
-## 📁 Project Structure
+🧠 Models Implemented
+1️⃣ SVM (Classical DSP + Machine Learning)
 
-```plaintext
+Features:
+
+MFCCs
+
+Delta MFCCs
+
+Zero-Crossing Rate
+
+Spectral Centroid
+
+Spectral Bandwidth
+
+Feature normalization using StandardScaler
+
+Classifier: Support Vector Machine (SVM)
+
+Strengths:
+
+Interpretable
+
+Lightweight
+
+Strong signal-processing foundation
+
+2️⃣ CNN (Deep Learning)
+
+Input representation: Log Mel-Spectrograms
+
+Architecture:
+
+2D Convolutional layers
+
+Max pooling
+
+Dense layers with softmax output
+
+Achieved accuracy: ~83%
+
+Strengths:
+
+Learns time–frequency patterns automatically
+
+Higher accuracy than classical approach
+
+📊 Signal Processing Pipeline
+SVM Pipeline
+Raw Audio
+ → Silence Trimming
+ → Normalization
+ → MFCC + Spectral Feature Extraction
+ → Feature Scaling
+ → SVM Classification
+
+CNN Pipeline
+Raw Audio
+ → Silence Trimming
+ → Normalization
+ → Mel-Spectrogram
+ → Log Scaling
+ → CNN Inference
+
+🖥️ Web Application (Streamlit)
+
+The Streamlit app provides:
+
+Model selection (SVM / CNN)
+
+Upload-based emotion detection
+
+Live microphone recording (local execution only)
+
+Visualization of:
+
+Waveform
+
+Spectrogram / Mel-Spectrogram
+
+Emotion probability distribution
+
+📂 Project Structure
 emotion_speech_project/
- ┣ utils/
- ┃ ┗ features.py
- ┣ notebooks/
- ┃ ┗ main_notebook.ipynb
- ┣ data/ (ignored from Git)
- ┣ models/
- ┣ README.md
- ┣ .gitignore
-```
+│
+├── app/
+│   └── streamlit_app.py        # Main Streamlit application
+│
+├── models/
+│   ├── svm_ravdess.joblib      # Trained SVM model
+│   ├── scaler.joblib           # Feature scaler
+│   ├── cnn_emotion_model_83.h5 # Trained CNN model
+│   └── cnn_label_encoder.pkl   # CNN label encoder
+│
+├── notebooks/
+│   └── 01_train_SVM.ipynb      # Feature extraction & SVM training
+│
+├── utils/
+│   └── feature utilities      # Signal processing helpers
+│
+├── data/
+│   └── RAVDESS/                # Dataset (not included in repo)
+│
+├── requirements.txt
+└── README.md
 
----
+📦 Requirements
 
-## 🛠️ Tech Stack
+See requirements.txt.
 
-* **Python**
-* **Librosa** – Audio loading & MFCC extraction
-* **NumPy, Pandas** – Data handling
-* **Matplotlib** – Visualizations
-* **Scikit-learn / TensorFlow / PyTorch** – Model training
+Key dependencies:
 
----
+Python 3.9+
 
-## 🔧 Installation
+Streamlit
 
-```bash
-git clone <repo-url>
-cd emotion_speech_project
+Librosa
+
+NumPy
+
+Scikit-learn
+
+TensorFlow
+
+Matplotlib
+
+SoundDevice (local recording only)
+
+⚙️ Installation & Setup
+1️⃣ Clone the repository
+git clone https://github.com/your-username/speech-emotion-recognition.git
+cd speech-emotion-recognition
+
+2️⃣ Create and activate virtual environment
+python -m venv venv
+venv\Scripts\activate
+
+3️⃣ Install dependencies
 pip install -r requirements.txt
-```
 
----
+4️⃣ Run the Streamlit app
+streamlit run app/streamlit_app.py
 
-## ▶️ Usage
+🎙️ Live Recording Support
 
-Run the notebook:
+Live microphone recording works only on local machines
 
-```bash
-jupyter notebook notebooks/main_notebook.ipynb
-```
+Disabled automatically on cloud deployments
 
-Or process audio files:
+Upload-based inference works everywhere
 
-```bash
-python utils/features.py
-```
+📈 Dataset
 
----
+RAVDESS Dataset
 
-## 📊 Results / Outputs
+Emotions include:
 
-* MFCC visualizations
-* Confusion matrix of model performance
-* Accuracy and F1-score metrics
+Neutral
 
-(Add screenshots or graphs once finalized.)
+Calm
 
----
+Happy
 
-## 🧪 Testing
+Sad
 
-```bash
-pytest
-```
+Angry
 
-Or manually run feature extraction on sample WAV files.
+Fearful
 
----
+Disgust
 
-## 🤝 Contributing
+Surprised
 
-Pull requests, issues, and suggestions welcome!
+Dataset is not included due to licensing.
 
----
+🎓 Academic Context
 
-## 📜 License
+This project was developed as part of a Signals & Systems course, with emphasis on:
 
-MIT / Apache / GPL — whichever you choose.
+Time-domain and frequency-domain analysis
 
----
+Feature extraction from audio signals
 
-## 👨‍💻 Author
+Practical application of DSP concepts
 
-**Muhammad Sanan Khan**
+Comparison of classical ML vs deep learning
 
+🚀 Future Improvements
+
+Browser-based microphone recording
+
+Data augmentation
+
+Transfer learning (pretrained audio CNNs)
+
+Real-time emotion timeline visualization
+
+Multi-language emotion recognition
+
+👨‍💻 Author
+
+Muhammad Sanan Khan
+Electrical Engineering
+Speech & Signal Processing Project
+
+📜 License
+
+This project is for educational and research purposes only.
